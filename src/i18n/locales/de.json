@@ -1189,6 +1189,12 @@
         "desc": "Optionale erweiterte Überschreibung. Leer lassen, um die Distribution möglichst aus einem WSL-Workspace-Pfad abzuleiten, sonst wird die Standard-WSL-Distribution verwendet."
       },
       "wslWindowsPath": "Der WSL-Modus erwartet einen Linux-Befehl oder absoluten Linux-Pfad, keinen Windows-Programmpfad."
+    },
+    "zcode": {
+      "environment": {
+        "name": "ZCode environment variables",
+        "desc": "Environment variables passed only to ZCode. Model credentials stay in ZCode config files and are not managed by Claudian."
+      }
     }
   }
 }

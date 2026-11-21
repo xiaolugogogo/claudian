@@ -1189,6 +1189,12 @@
         "desc": "Sobrescritura avanzada opcional. Déjala vacía para inferir la distribución desde una ruta de espacio de trabajo WSL cuando sea posible; si no, se usa la distribución WSL predeterminada."
       },
       "wslWindowsPath": "El modo WSL espera un comando Linux o una ruta absoluta de Linux, no una ruta de ejecutable de Windows."
+    },
+    "zcode": {
+      "environment": {
+        "name": "ZCode environment variables",
+        "desc": "Environment variables passed only to ZCode. Model credentials stay in ZCode config files and are not managed by Claudian."
+      }
     }
   }
 }

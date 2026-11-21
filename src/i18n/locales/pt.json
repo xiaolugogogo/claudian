@@ -1189,6 +1189,12 @@
         "desc": "Substituição avançada opcional. Deixe vazio para inferir a distro a partir de um caminho de workspace WSL quando possível; caso contrário, usa a distro WSL padrão."
       },
       "wslWindowsPath": "O modo WSL espera um comando Linux ou caminho absoluto Linux, não um caminho de executável do Windows."
+    },
+    "zcode": {
+      "environment": {
+        "name": "ZCode environment variables",
+        "desc": "Environment variables passed only to ZCode. Model credentials stay in ZCode config files and are not managed by Claudian."
+      }
     }
   }
 }

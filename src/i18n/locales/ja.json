@@ -1189,6 +1189,12 @@
         "desc": "任意の詳細上書き。空欄の場合、可能なら WSL ワークスペースパスから推測し、それ以外は既定の WSL ディストリビューションを使用します。"
       },
       "wslWindowsPath": "WSL モードでは Windows 実行ファイルパスではなく、Linux コマンドまたは Linux 絶対パスが必要です。"
+    },
+    "zcode": {
+      "environment": {
+        "name": "ZCode environment variables",
+        "desc": "Environment variables passed only to ZCode. Model credentials stay in ZCode config files and are not managed by Claudian."
+      }
     }
   }
 }
