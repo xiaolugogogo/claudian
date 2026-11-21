@@ -4,6 +4,7 @@ import {
   deriveZcodePersonalConfig,
   parseZcodeCatalog,
   resolveZcodePersonalConfigPath,
+  resolveZcodeSelectionToProviderId,
 } from '@/providers/zcode/runtime/ZcodePersonalConfig';
 
 function makeConfig(): Record<string, unknown> {
@@ -32,11 +33,11 @@ describe('ZcodePersonalConfig', () => {
   it('parses catalog entries with provider labels', () => {
     const entries = parseZcodeCatalog(makeConfig());
     expect(entries.map(entry => entry.id)).toEqual([
-      'zcode:p-step/step-5-preview',
-      'zcode:p-dp/deepseek-flash',
-      'zcode:p-dp/deepseek-r1',
+      'zcode:stepfun/step-5-preview',
+      'zcode:dp/deepseek-flash',
+      'zcode:dp/deepseek-r1',
     ]);
-    expect(entries[1]).toMatchObject({ providerLabel: 'dp', modelId: 'deepseek-flash' });
+    expect(entries[1]).toMatchObject({ providerLabel: 'dp', providerId: 'p-dp', modelId: 'deepseek-flash', name: 'deepseek-flash' });
   });
 
   it('derives a config that pins the selection and reorders providers', () => {
@@ -45,6 +46,13 @@ describe('ZcodePersonalConfig', () => {
     expect(root.defaultModelSelection).toEqual({ providerId: 'p-dp', modelId: 'deepseek-r1' });
     expect(root.providerOrder).toEqual(['p-dp', 'p-step']);
     expect((derived as { schemaVersion?: number }).schemaVersion).toBe(1);
+  });
+
+  it('resolves selections to provider uuids by name, with uuid compatibility', () => {
+    const catalog = parseZcodeCatalog(makeConfig());
+    expect(resolveZcodeSelectionToProviderId({ providerId: 'dp', modelId: 'deepseek-r1' }, catalog)).toBe('p-dp');
+    expect(resolveZcodeSelectionToProviderId({ providerId: 'p-dp', modelId: 'deepseek-r1' }, catalog)).toBe('p-dp');
+    expect(resolveZcodeSelectionToProviderId({ providerId: 'unknown', modelId: 'x' }, catalog)).toBeNull();
   });
 
   it('resolves the personal config path from the environment override', () => {

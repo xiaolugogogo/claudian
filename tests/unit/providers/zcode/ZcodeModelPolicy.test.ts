@@ -50,8 +50,8 @@ describe('zcode model policy', () => {
   });
 
   it('defaults to the first visible discovered model', () => {
-    expect(zcodeModelPolicy.getDefaultModel({ providerConfigs: { zcode: {} } })).toBe('zcode:p-dp/deepseek-flash');
-    const curated = zcodeModelPolicy.getDefaultModel({
+    expect(zcodeModelPolicy.getDefaultModel?.({ providerConfigs: { zcode: {} } })).toBe('zcode:p-dp/deepseek-flash');
+    const curated = zcodeModelPolicy.getDefaultModel?.({
       providerConfigs: { zcode: { visibleModels: ['zcode:p-dp/deepseek-r1'] } },
     });
     expect(curated).toBe('zcode:p-dp/deepseek-r1');
@@ -64,7 +64,7 @@ describe('zcode model policy', () => {
   });
 
   it('claims ids with the zcode prefix through ownsModel', () => {
-    expect(zcodeModelPolicy.ownsModel('zcode:p-dp/deepseek-flash')).toBe(true);
-    expect(zcodeModelPolicy.ownsModel('opencode/deepseek-v4.1-flash')).toBe(false);
+    expect(zcodeModelPolicy.ownsModel('zcode:p-dp/deepseek-flash', { providerConfigs: {} })).toBe(true);
+    expect(zcodeModelPolicy.ownsModel('opencode/deepseek-v4.1-flash', { providerConfigs: {} })).toBe(false);
   });
 });

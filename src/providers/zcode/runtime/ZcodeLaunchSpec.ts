@@ -5,8 +5,10 @@ import { delimiter as pathDelimiter, dirname, join } from 'node:path';
 
 import {
   deriveZcodePersonalConfig,
+  parseZcodeCatalog,
   readZcodePersonalConfig,
   resolveZcodePersonalConfigPath,
+  resolveZcodeSelectionToProviderId,
   type ZcodeModelSelection,
 } from './ZcodePersonalConfig';
 
@@ -76,7 +78,10 @@ function writeDerivedPersonalConfig(selection: ZcodeModelSelection | null): stri
     const sourcePath = resolveZcodePersonalConfigPath();
     const source = readZcodePersonalConfig(sourcePath);
     if (!source) return null;
-    const derived = deriveZcodePersonalConfig(source, selection);
+    // Selection ids address providers by name; resolve the internal uuid here.
+    const providerId = resolveZcodeSelectionToProviderId(selection, parseZcodeCatalog(source));
+    if (!providerId) return null;
+    const derived = deriveZcodePersonalConfig(source, { providerId, modelId: selection.modelId });
     const path = join(tmpdir(), `claudian-zcode-config-${randomUUID()}.json`);
     writeFileSync(path, JSON.stringify(derived, null, 2), { encoding: 'utf8', mode: 0o600 });
     return path;

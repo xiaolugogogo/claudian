@@ -8,17 +8,24 @@ import { join } from 'node:path';
  * providers and models the ZCode CLI can run. ZCode has no `--model` flag, so
  * per-conversation model selection is applied by deriving a temporary config
  * file that pins `defaultModelSelection` and `providerOrder`.
+ *
+ * External selection ids use the provider NAME (`zcode:<name>/<modelId>`,
+ * matching the other providers' upstream/model shape); the provider's internal
+ * uuid is resolved from the config only when a turn is launched.
  */
 export interface ZcodeCatalogEntry {
-  /** Selection id handed to Claudian: `zcode:<providerId>/<modelId>`. */
+  /** External selection id: `zcode:<providerName>/<modelId>`. */
   readonly id: string;
-  /** Display label: alias wins, else `<providerName> <modelId>`. */
+  /** Display name: the bare model id (the provider shows as the group). */
   readonly name: string;
   readonly providerLabel: string;
+  /** ZCode's internal provider id (uuid) used in derived config files. */
+  readonly providerId: string;
   readonly modelId: string;
 }
 
 export interface ZcodeModelSelection {
+  /** Provider as addressed by the selection id: usually the provider name. */
   readonly providerId: string;
   readonly modelId: string;
 }
@@ -33,9 +40,7 @@ export function resolveZcodePersonalConfigPath(env: NodeJS.ProcessEnv = process.
   return join(dataBaseDir, '.zcode', 'v2', 'provider_config.json');
 }
 
-export function readZcodePersonalConfig(
-  path: string,
-): Record<string, unknown> | null {
+export function readZcodePersonalConfig(path: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -64,9 +69,10 @@ export function parseZcodeCatalog(config: Record<string, unknown>): ZcodeCatalog
     if (!providerId || !modelId) continue;
     const providerLabel = providerNames.get(providerId) ?? providerId;
     entries.push({
-      id: `${ZCODE_MODEL_ID_PREFIX}${providerId}/${modelId}`,
-      name: `${providerLabel} ${modelId}`,
+      id: `${ZCODE_MODEL_ID_PREFIX}${sanitizeProviderLabel(providerLabel)}/${modelId}`,
+      name: modelId,
       providerLabel,
+      providerId,
       modelId,
     });
   }
@@ -76,6 +82,21 @@ export function parseZcodeCatalog(config: Record<string, unknown>): ZcodeCatalog
 /** Live catalog read; used by the shared picker and the chat model policy. */
 export function listZcodeCatalogModels(env?: NodeJS.ProcessEnv): ZcodeCatalogEntry[] {
   return parseZcodeCatalog(readZcodePersonalConfig(resolveZcodePersonalConfigPath(env)) ?? {});
+}
+
+/**
+ * Resolves a selection's provider to ZCode's internal uuid. Selection ids
+ * address providers by name; a raw uuid also resolves, keeping earlier
+ * selections alive across the id-format change.
+ */
+export function resolveZcodeSelectionToProviderId(
+  selection: ZcodeModelSelection,
+  catalog: readonly ZcodeCatalogEntry[],
+): string | null {
+  const byName = catalog.find(entry => entry.providerLabel === selection.providerId);
+  if (byName) return byName.providerId;
+  const byUuid = catalog.find(entry => entry.providerId === selection.providerId && entry.modelId === selection.modelId);
+  return byUuid?.providerId ?? null;
 }
 
 /**
@@ -99,6 +120,11 @@ export function deriveZcodePersonalConfig(
     : [];
   configRoot.providerOrder = [selection.providerId, ...order];
   return derived;
+}
+
+/** Provider labels become id segments; a slash inside a name must not break parsing. */
+function sanitizeProviderLabel(label: string): string {
+  return label.replaceAll('/', '-');
 }
 
 function readRuleArray(
