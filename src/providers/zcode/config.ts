@@ -19,6 +19,10 @@ export interface PersistedZcodeProviderSettings extends StoredInstallationSettin
   enabled: boolean;
   environmentHash: string;
   environmentVariables: string;
+  /** Persisted ZCode model aliases keyed by selection id (`zcode:<providerId>/<modelId>`). */
+  modelAliases: Record<string, string>;
+  /** Curated chat-selector order; null means "every discovered model, discovery order". */
+  visibleModels: string[] | null;
 }
 
 export interface ZcodeProviderSettings extends PersistedZcodeProviderSettings, InstallationSettings {
@@ -31,6 +35,8 @@ export const DEFAULT_ZCODE_PROVIDER_SETTINGS: Readonly<PersistedZcodeProviderSet
   environmentHash: '',
   environmentVariables: '',
   installationMethodsByHost: {},
+  modelAliases: {},
+  visibleModels: [],
   wslDistroOverridesByHost: {},
 });
 
@@ -47,6 +53,8 @@ export function decodeZcodeConfig(
     enabled: typeof config.enabled === 'boolean' ? config.enabled : DEFAULT_ZCODE_PROVIDER_SETTINGS.enabled,
     environmentHash: readTrimmedString(config.environmentHash),
     environmentVariables: typeof config.environmentVariables === 'string' ? config.environmentVariables : '',
+    modelAliases: normalizeModelStringMap(config.modelAliases),
+    visibleModels: normalizeVisibleModels(config.visibleModels),
   };
 }
 
@@ -81,10 +89,37 @@ export function updateZcodeConfig(
       : current.environmentHash,
     environmentVariables: updates.environmentVariables ?? current.environmentVariables,
     installationMethodsByHost: installation.installationMethodsByHost,
+    modelAliases: updates.modelAliases !== undefined
+      ? normalizeModelStringMap(updates.modelAliases)
+      : current.modelAliases,
+    visibleModels: updates.visibleModels !== undefined
+      ? normalizeVisibleModels(updates.visibleModels)
+      : current.visibleModels,
     wslDistroOverridesByHost: installation.wslDistroOverridesByHost,
   };
   replaceProviderConfig(config, next as unknown as Record<string, unknown>);
   return { ...next, ...selectInstallationSettings(next, hostKey) };
+}
+
+function normalizeVisibleModels(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids: string[] = [];
+  for (const entry of value) {
+    const id = typeof entry === 'string' ? entry.trim() : '';
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+function normalizeModelStringMap(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const normalized: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    const id = key.trim();
+    const alias = typeof entry === 'string' ? entry.trim() : '';
+    if (id && alias) normalized[id] = alias;
+  }
+  return normalized;
 }
 
 function readTrimmedString(value: unknown): string {

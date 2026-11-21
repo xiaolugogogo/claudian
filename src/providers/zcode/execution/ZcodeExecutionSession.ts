@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { rmSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 
 import {
@@ -19,6 +20,7 @@ import type { ManagedStdioProcessExitState } from '@/core/process/ManagedStdioPr
 import { ManagedStdioProcess } from '@/core/process/ManagedStdioProcess';
 import type { ProviderRuntimeHost } from '@/core/providers/ProviderRuntimeHost';
 
+import { parseZcodeModelSelectionId } from '../models';
 import { resolveZcodePermissionMode } from '../permissionModes';
 import { buildZcodeLaunchSpec } from '../runtime/ZcodeLaunchSpec';
 import { buildZcodeRuntimeEnv } from '../runtime/ZcodeRuntimeEnvironment';
@@ -30,6 +32,7 @@ interface ActiveExecution {
   readonly parser: ReturnType<typeof createZcodeStreamParser>;
   process: ManagedStdioProcess | null;
   turnOutput: ZcodeTurnOutput | null;
+  derivedConfigPath: string | null;
 }
 
 /**
@@ -73,6 +76,7 @@ export class ZcodeExecutionSession implements ProviderExecutionSession {
       parser: createZcodeStreamParser(),
       process: null,
       turnOutput: null,
+      derivedConfigPath: null,
     };
     this.#state.setStatus('executing');
     this.#emitCurrentSnapshot();
@@ -129,13 +133,19 @@ export class ZcodeExecutionSession implements ProviderExecutionSession {
         return;
       }
       const env = buildZcodeRuntimeEnv(this.#host.environmentText, cliPath);
+      const modelSelection = parseZcodeModelSelectionId(request.configuration.model);
       const spec = buildZcodeLaunchSpec({
         cliPath,
         workingDirectory,
         prompt: extractPromptText(request),
         mode: resolveZcodePermissionMode(request.configuration.permissionMode),
         resumeSessionId: this.#nativeSessionId,
+        modelSelection,
       });
+      const derivedConfigPath = modelSelection
+        ? spec.env.ZCODE_PERSONAL_PROVIDER_CONFIG_FILE
+        : undefined;
+      active.derivedConfigPath = derivedConfigPath ?? null;
       if (active.run.isCancellationRequested) return;
       const child = new ManagedStdioProcess({
         command: spec.command,
@@ -222,6 +232,15 @@ export class ZcodeExecutionSession implements ProviderExecutionSession {
   #endRun(active: ActiveExecution, terminal: RequestedRunTerminalEvent): void {
     this.#active = null;
     active.run.finish(terminal);
+    const derivedConfigPath = active.derivedConfigPath;
+    if (derivedConfigPath) {
+      active.derivedConfigPath = null;
+      try {
+        rmSync(derivedConfigPath, { force: true });
+      } catch {
+        // A stuck temp file outlives the turn; the OS temp dir clears it eventually.
+      }
+    }
   }
 
   #endWithConfigurationError(active: ActiveExecution, message: string): void {

@@ -1,5 +1,14 @@
-import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { delimiter as pathDelimiter, dirname, join } from 'node:path';
+
+import {
+  deriveZcodePersonalConfig,
+  readZcodePersonalConfig,
+  resolveZcodePersonalConfigPath,
+  type ZcodeModelSelection,
+} from './ZcodePersonalConfig';
 
 /**
  * Builds the per-turn launch spec for the ZCode CLI. A turn is one process:
@@ -22,6 +31,8 @@ export interface ZcodeLaunchSpecInputs {
   readonly prompt: string;
   readonly mode: string;
   readonly resumeSessionId: string | null;
+  /** A concrete `zcode:` selection pins the model through a derived config. */
+  readonly modelSelection: ZcodeModelSelection | null;
 }
 
 export function buildZcodeLaunchSpec(inputs: ZcodeLaunchSpecInputs): ZcodeLaunchSpec {
@@ -31,14 +42,48 @@ export function buildZcodeLaunchSpec(inputs: ZcodeLaunchSpecInputs): ZcodeLaunch
   if (builtinConfig) {
     env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = builtinConfig;
   }
+  const derivedConfigPath = writeDerivedPersonalConfig(inputs.modelSelection);
+  if (derivedConfigPath) {
+    env.ZCODE_PERSONAL_PROVIDER_CONFIG_FILE = derivedConfigPath;
+  }
+  const spec: ZcodeLaunchSpec = {
+    command: inputs.cliPath,
+    args: cliArgs,
+    env,
+  };
   if (!isNodeBundlePath(inputs.cliPath)) {
-    return { command: inputs.cliPath, args: cliArgs, env };
+    return spec;
   }
   return {
+    ...spec,
     command: resolveNodeExecutable(),
     args: [inputs.cliPath, ...cliArgs],
     env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
   };
+}
+
+/**
+ * Writes the per-turn derived personal config for a concrete model selection
+ * and returns its path for cleanup. ZCode reads its model from config files
+ * rather than a `--model` flag; the derived file pins `defaultModelSelection`
+ * and moves the selected provider to the front of `providerOrder` while
+ * keeping every provider, model rule and credential from the user's real
+ * configuration untouched.
+ */
+function writeDerivedPersonalConfig(selection: ZcodeModelSelection | null): string | null {
+  if (!selection) return null;
+  try {
+    const sourcePath = resolveZcodePersonalConfigPath();
+    const source = readZcodePersonalConfig(sourcePath);
+    if (!source) return null;
+    const derived = deriveZcodePersonalConfig(source, selection);
+    const path = join(tmpdir(), `claudian-zcode-config-${randomUUID()}.json`);
+    writeFileSync(path, JSON.stringify(derived, null, 2), { encoding: 'utf8', mode: 0o600 });
+    return path;
+  } catch {
+    // Falling back to the user's own default selection beats failing the turn.
+    return null;
+  }
 }
 
 /**

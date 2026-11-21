@@ -39,6 +39,7 @@ describe('buildZcodeLaunchSpec', () => {
     prompt: 'hi',
     mode: 'yolo',
     resumeSessionId: null,
+    modelSelection: null,
   };
 
   it('launches a standalone binary directly without extra env', () => {

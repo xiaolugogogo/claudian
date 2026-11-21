@@ -12,9 +12,12 @@ import { ProviderWorkspaceRegistry } from '../../../core/providers/ProviderWorks
 import type { ProviderSettingsTabRenderer } from '../../../core/providers/types';
 import type { ClaudianSettings } from '../../../core/types';
 import { t } from '../../../i18n/i18n';
+import { AccessibleSetting } from '../../../shared/settings/AccessibleSetting';
 import { renderEnvironmentSettingsSection } from '../../../shared/settings/EnvironmentSettingsSection';
 import type { ProviderEnablementSettingOptions } from '../../../shared/settings/ProviderEnablementSetting';
 import { renderLastEnabledProviderWarning } from '../../../shared/settings/ProviderModelEnablementWarning';
+import { renderProviderModelsSection } from '../../../shared/settings/ProviderModelsSection';
+import type { ZcodeWorkspaceServices } from '../app/ZcodeWorkspaceServices';
 import { buildZcodeRuntimeEnv } from '../runtime/ZcodeRuntimeEnvironment';
 import {
   getZcodeProviderSettings,
@@ -90,6 +93,15 @@ export const zcodeSettingsTabRenderer: ProviderSettingsTabRenderer = {
       placeholder: nativeCLIPlaceholder(),
       validate: validateZcodeCLIPath,
     });
+
+    const workspaceServices = workspace as ZcodeWorkspaceServices;
+    new AccessibleSetting(container).setName('Models').setHeading();
+    renderProviderModelsSection(
+      container,
+      ZCODE_PROVIDER_ID,
+      DISPLAY_NAME,
+      workspaceServices.modelCatalog,
+    );
 
     renderEnvironmentSettingsSection({
       container,
