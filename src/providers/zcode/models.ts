@@ -7,13 +7,10 @@ import { listZcodeCatalogModels } from './runtime/ZcodePersonalConfig';
 import { getZcodeProviderSettings } from './settings';
 
 /**
- * The passthrough option keeps today's behavior: the spawned CLI uses ZCode's
- * own default-model state untouched. Concrete selections are encoded as
- * `zcode:<providerId>/<modelId>` and applied per turn through a derived
- * personal config file, so two conversations can run different models.
+ * ZCode has no per-turn `--model` flag: a concrete selection is applied per
+ * turn through a derived personal config file, so conversations can run
+ * different models without touching the user's global configuration.
  */
-export const ZCODE_FOLLOW_CONFIG_MODEL_ID = 'zcode-configured';
-
 export function parseZcodeModelSelectionId(model: string | undefined): ZcodeModelSelection | null {
   if (!model || !model.startsWith(ZCODE_MODEL_ID_PREFIX)) return null;
   const composite = model.slice(ZCODE_MODEL_ID_PREFIX.length);
@@ -28,31 +25,30 @@ export function parseZcodeModelSelectionId(model: string | undefined): ZcodeMode
 export const zcodeModelPolicy: ProviderModelPolicy = {
   getModelOptions(settings): ProviderUIOption[] {
     const current = getZcodeProviderSettings(settings);
-    const options: ProviderUIOption[] = [{
-      value: ZCODE_FOLLOW_CONFIG_MODEL_ID,
-      label: 'Follow ZCode config',
-      description: 'Uses the default model selected by ZCode itself',
-    }];
     const discovered = new Map(listZcodeCatalogModels().map(entry => [entry.id, entry]));
     const visible = current.visibleModels ?? [...discovered.keys()];
+    const options: ProviderUIOption[] = [];
     for (const id of visible) {
       const entry = discovered.get(id);
       if (!entry || options.some(option => option.value === id)) continue;
       options.push({
         value: id,
-        label: Object.hasOwn(current.modelAliases, id) ? current.modelAliases[id] : entry.name,
-        description: `${entry.providerLabel} / ${entry.modelId}`,
+        group: entry.providerLabel,
+        label: Object.hasOwn(current.modelAliases, id) ? current.modelAliases[id] : entry.modelId,
       });
     }
     return options;
   },
 
-  getDefaultModel() {
-    return ZCODE_FOLLOW_CONFIG_MODEL_ID;
+  getDefaultModel(settings) {
+    const current = getZcodeProviderSettings(settings);
+    const discovered = new Set(listZcodeCatalogModels().map(entry => entry.id));
+    const visible = current.visibleModels ?? [...discovered];
+    return visible.find(id => discovered.has(id)) ?? null;
   },
 
   ownsModel(model: string): boolean {
-    return model === ZCODE_FOLLOW_CONFIG_MODEL_ID || model.startsWith(ZCODE_MODEL_ID_PREFIX);
+    return model.startsWith(ZCODE_MODEL_ID_PREFIX);
   },
 
   supportsReasoningEffort() {
@@ -67,8 +63,8 @@ export const zcodeModelPolicy: ProviderModelPolicy = {
     return 'default';
   },
 
-  isDefaultModel(model: string): boolean {
-    return model === ZCODE_FOLLOW_CONFIG_MODEL_ID;
+  isDefaultModel(): boolean {
+    return false;
   },
 
   applyModelDefaults(_model: string, _settings: unknown): void {

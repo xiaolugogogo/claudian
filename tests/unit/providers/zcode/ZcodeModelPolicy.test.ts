@@ -21,12 +21,17 @@ import {
 } from '@/providers/zcode/models';
 
 describe('zcode model policy', () => {
-  it('always offers the passthrough option first', () => {
+  it('groups options by provider and shows bare model names', () => {
     const options = zcodeModelPolicy.getModelOptions({ providerConfigs: { zcode: {} } });
-    expect(options[0]).toMatchObject({ value: 'zcode-configured' });
+    expect(options.map(option => option.value)).toEqual([
+      'zcode:p-dp/deepseek-flash',
+      'zcode:p-dp/deepseek-r1',
+    ]);
+    expect(options[0]).toMatchObject({ group: 'dp', label: 'deepseek-flash' });
+    expect(options.every(option => option.description === undefined)).toBe(true);
   });
 
-  it('lists visible models with aliases and falls back to discovery order', () => {
+  it('uses aliases as labels and keeps discovery order without curation', () => {
     const settings = {
       providerConfigs: {
         zcode: {
@@ -37,32 +42,29 @@ describe('zcode model policy', () => {
     };
     const options = zcodeModelPolicy.getModelOptions(settings);
     expect(options.map(option => option.value)).toEqual([
-      'zcode-configured',
       'zcode:p-dp/deepseek-r1',
       'zcode:p-dp/deepseek-flash',
     ]);
-    expect(options[1].label).toBe('DeepSeek R1');
+    expect(options[0].label).toBe('DeepSeek R1');
+    expect(options[0].group).toBe('dp');
   });
 
-  it('falls back to every discovered model when no curation is saved', () => {
-    const options = zcodeModelPolicy.getModelOptions({ providerConfigs: { zcode: {} } });
-    expect(options.map(option => option.value)).toEqual([
-      'zcode-configured',
-      'zcode:p-dp/deepseek-flash',
-      'zcode:p-dp/deepseek-r1',
-    ]);
+  it('defaults to the first visible discovered model', () => {
+    expect(zcodeModelPolicy.getDefaultModel({ providerConfigs: { zcode: {} } })).toBe('zcode:p-dp/deepseek-flash');
+    const curated = zcodeModelPolicy.getDefaultModel({
+      providerConfigs: { zcode: { visibleModels: ['zcode:p-dp/deepseek-r1'] } },
+    });
+    expect(curated).toBe('zcode:p-dp/deepseek-r1');
   });
 
   it('parses selection ids back into provider/model pairs', () => {
     expect(parseZcodeModelSelectionId('zcode:p-dp/deepseek-flash')).toEqual({ providerId: 'p-dp', modelId: 'deepseek-flash' });
-    expect(parseZcodeModelSelectionId('zcode-configured')).toBeNull();
     expect(parseZcodeModelSelectionId(undefined)).toBeNull();
     expect(parseZcodeModelSelectionId('zcode:bad')).toBeNull();
   });
 
   it('claims ids with the zcode prefix through ownsModel', () => {
-    expect(zcodeModelPolicy.ownsModel('zcode:p-dp/deepseek-flash', { providerConfigs: {} })).toBe(true);
-    expect(zcodeModelPolicy.ownsModel('zcode-configured', { providerConfigs: {} })).toBe(true);
-    expect(zcodeModelPolicy.ownsModel('opencode/deepseek-v4.1-flash', { providerConfigs: {} })).toBe(false);
+    expect(zcodeModelPolicy.ownsModel('zcode:p-dp/deepseek-flash')).toBe(true);
+    expect(zcodeModelPolicy.ownsModel('opencode/deepseek-v4.1-flash')).toBe(false);
   });
 });
