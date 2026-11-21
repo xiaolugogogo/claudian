@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { delimiter as pathDelimiter, join } from 'node:path';
+import { delimiter as pathDelimiter, dirname, join } from 'node:path';
 
 /**
  * Builds the per-turn launch spec for the ZCode CLI. A turn is one process:
@@ -26,14 +26,42 @@ export interface ZcodeLaunchSpecInputs {
 
 export function buildZcodeLaunchSpec(inputs: ZcodeLaunchSpecInputs): ZcodeLaunchSpec {
   const cliArgs = buildZcodeCliArgs(inputs);
+  const env: Record<string, string | undefined> = {};
+  const builtinConfig = discoverZcodeBuiltinProviderConfig(inputs.cliPath);
+  if (builtinConfig) {
+    env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = builtinConfig;
+  }
   if (!isNodeBundlePath(inputs.cliPath)) {
-    return { command: inputs.cliPath, args: cliArgs, env: {} };
+    return { command: inputs.cliPath, args: cliArgs, env };
   }
   return {
     command: resolveNodeExecutable(),
     args: [inputs.cliPath, ...cliArgs],
-    env: { ELECTRON_RUN_AS_NODE: '1' },
+    env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
   };
+}
+
+/**
+ * Desktop installs ship the built-in provider catalog outside the CLI bundle's
+ * own search paths (`resources/config/provider/zcode-builtin.json` next to the
+ * bundle's parent), so a `zcode.cjs` spawned from the bundle directory cannot
+ * locate it and fails before the turn. The env var is the CLI's own override;
+ * it stays unset for layouts the CLI resolves by itself.
+ */
+function discoverZcodeBuiltinProviderConfig(cliPath: string): string | null {
+  const dir = dirname(cliPath);
+  const candidates = [
+    join(dir, 'provider', 'zcode-builtin.json'),
+    join(dir, '..', 'config', 'provider', 'zcode-builtin.json'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (existsSync(candidate)) return candidate;
+    } catch {
+      // A malformed path falls through to the next candidate.
+    }
+  }
+  return null;
 }
 
 function buildZcodeCliArgs(inputs: ZcodeLaunchSpecInputs): string[] {
