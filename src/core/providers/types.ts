@@ -177,7 +177,7 @@ export interface ProviderSvgGroupChild {
 
 /** Shapes and paint servers for full-colour marks; renderers scope their ids to each rendered copy. */
 export interface ProviderSvgElementChild {
-  tag: 'defs' | 'ellipse' | 'feGaussianBlur' | 'filter' | 'mask';
+  tag: 'defs' | 'ellipse' | 'feGaussianBlur' | 'filter' | 'image' | 'mask';
   attributes: Record<string, string>;
   children?: ProviderSvgChild[];
 }

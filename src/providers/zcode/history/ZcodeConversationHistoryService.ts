@@ -1,25 +1,45 @@
 import type {
   ProviderConversationHistoryService,
+  ProviderConversationSessionAvailability,
   ProviderHistoryInput,
   ProviderHistoryUpdate,
 } from '../../../core/providers/types';
+import {
+  readZcodeHistoryRevision,
+  readZcodeNativeHistory,
+  zcodeSessionDbExists,
+  zcodeSessionExists,
+} from './ZcodeHistoryStore';
 
 /**
- * Lenient history service for the per-turn ZCode provider. Claudian stores the
- * full transcript in its own conversation records; the native session lives in
- * ZCode's SQLite store and is resumed through `--resume`, so hydration has
- * nothing to replay from native history. Availability stays `unknown` because
- * the provider cannot cheaply probe ZCode's session database.
+ * Hydrates conversation history from ZCode's session database (read-only
+ * `node:sqlite` access). Claudian renders history from the repository's
+ * messages; ZCode's native store is the single source of truth, so a
+ * conversation open rebuilds its transcript from the session database.
  */
 export class ZcodeConversationHistoryService implements ProviderConversationHistoryService {
   async hydrateConversationHistory(
-    _conversation: ProviderHistoryInput,
+    conversation: ProviderHistoryInput,
   ): Promise<ProviderHistoryUpdate> {
-    return {};
+    if (!conversation.sessionId) return {};
+    const messages = readZcodeNativeHistory(conversation.sessionId);
+    if (messages.length === 0) return {};
+    return { messages };
   }
 
-  readNativeHistoryRevision(): Promise<string | null> {
-    return Promise.resolve(null);
+  readNativeHistoryRevision(
+    conversation: ProviderHistoryInput,
+  ): Promise<string | null> {
+    return Promise.resolve(
+      conversation.sessionId ? readZcodeHistoryRevision(conversation.sessionId) : null,
+    );
+  }
+
+  getConversationSessionAvailability(
+    conversation: ProviderHistoryInput,
+  ): Promise<ProviderConversationSessionAvailability> {
+    if (!conversation.sessionId || !zcodeSessionDbExists()) return Promise.resolve('unknown');
+    return Promise.resolve(zcodeSessionExists(conversation.sessionId) ? 'available' : 'missing');
   }
 
   resolveSessionIdForConversation(conversation: ProviderHistoryInput | null): string | null {
