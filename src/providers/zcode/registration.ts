@@ -8,6 +8,7 @@ import { zcodeSettingsReconciler } from './env/ZcodeSettingsReconciler';
 import { ZcodeExecutionBackend } from './execution/ZcodeExecutionBackend';
 import { ZcodeConversationHistoryService } from './history/ZcodeConversationHistoryService';
 import { zcodeModelPolicy } from './models';
+import { listZcodeCatalogModels, migrateZcodeSelectionIds } from './runtime/ZcodePersonalConfig';
 import {
   getZcodeProviderSettings,
   updateZcodeProviderSettings,
@@ -34,7 +35,16 @@ export const zcodeProviderRegistration: ProviderModule = {
     normalizeStored(target, stored) {
       const storedConfig = getProviderConfig(stored, ZCODE_PROVIDER_ID);
       const current = getZcodeProviderSettings(stored);
-      updateZcodeProviderSettings(target, { ...current });
+      // Migrate uuid-addressed selection ids from earlier builds to the
+      // current name-addressed format so the chat selector stays usable.
+      const catalog = listZcodeCatalogModels();
+      const visibleModels = current.visibleModels
+        ? migrateZcodeSelectionIds(current.visibleModels, catalog)
+        : current.visibleModels;
+      const modelAliases = Object.fromEntries(
+        Object.entries(current.modelAliases).map(([id, alias]) => [migrateZcodeSelectionIds([id], catalog)[0], alias]),
+      );
+      updateZcodeProviderSettings(target, { ...current, visibleModels, modelAliases });
       return hasStoredConfigNormalization(storedConfig, getProviderConfig(target, ZCODE_PROVIDER_ID));
     },
   },

@@ -37,6 +37,17 @@ export const zcodeModelPolicy: ProviderModelPolicy = {
         label: Object.hasOwn(current.modelAliases, id) ? current.modelAliases[id] : entry.modelId,
       });
     }
+    if (options.length === 0 && discovered.size > 0) {
+      // Stale curation (e.g. ids from a previous id format) must not render the
+      // provider unusable; fall back to every discovered model.
+      for (const [id, entry] of discovered) {
+        options.push({
+          value: id,
+          group: entry.providerLabel,
+          label: Object.hasOwn(current.modelAliases, id) ? current.modelAliases[id] : entry.modelId,
+        });
+      }
+    }
     return options;
   },
 

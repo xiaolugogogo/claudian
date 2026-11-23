@@ -127,6 +127,26 @@ function sanitizeProviderLabel(label: string): string {
   return label.replaceAll('/', '-');
 }
 
+/**
+ * Migrates selection ids written by earlier builds: uuid-addressed ids
+ * (`zcode:<uuid>/<modelId>`) resolve through the catalog to the current
+ * name-addressed format. Unknown ids pass through untouched.
+ */
+export function migrateZcodeSelectionIds(
+  ids: readonly string[],
+  catalog: readonly ZcodeCatalogEntry[],
+): string[] {
+  return ids.map(id => {
+    if (catalog.some(entry => entry.id === id)) return id;
+    const separator = id.indexOf('/');
+    if (!id.startsWith(ZCODE_MODEL_ID_PREFIX) || separator <= 0) return id;
+    const providerId = id.slice(ZCODE_MODEL_ID_PREFIX.length, separator);
+    const modelId = id.slice(separator + 1);
+    const match = catalog.find(entry => entry.providerId === providerId && entry.modelId === modelId);
+    return match ? match.id : id;
+  });
+}
+
 function readRuleArray(
   root: Record<string, unknown> | null | undefined,
   holderKey: string,
