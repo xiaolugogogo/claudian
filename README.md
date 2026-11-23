@@ -53,6 +53,7 @@ Open Claudian interface from the ribbon icon or command palette. Everything work
   - [Grok Build](https://github.com/xai-org/grok-build)
   - [OpenCode V2](https://github.com/anomalyco/opencode)
   - [Pi](https://github.com/earendil-works/pi)
+  - [ZCode](https://github.com/zai-org/ZCode)
 - A compatible subscription or API provider
 - Obsidian v1.13.0+
 - Desktop only (macOS, Linux, Windows)
